@@ -108,7 +108,7 @@ case $start in
 5)
 	echo -e ${step_prefix}"STEP 5, install imgcnv"
 	if [ ! -d imgcnv ]; then hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv; fi
-	cd imgcnv && cp $(dirname "$0")/ubuntu1804.sh .
+	cd imgcnv && cp ${this_path}/ubuntu1804.sh .
 	bash ubuntu1804.sh && make -j4 > ${out} && sudo make install > ${out} && cd ../
 	sudo ln -s /usr/lib/libimgcnv.so.2 /usr/lib/libimgcnv.so && sudo ldconfig ;&
 
@@ -116,7 +116,7 @@ case $start in
 	echo -e ${step_prefix}"STEP 6, set up virtualenv"
 	first_line=$(echo "${bashrc_appends}" | head -n 2 | tail -n 1)
 	if grep -Fxq "${first_line}" ~/.bashrc
-	then echo "bashrc already modified"
+	then echo "~/.bashrc already modified"
 	else echo "${bashrc_appends}" >> ~/.bashrc
 	fi
 	source /usr/local/bin/virtualenvwrapper.sh
@@ -125,19 +125,18 @@ case $start in
 
 7)	
 	echo -e ${step_prefix}"STEP 7, clone BisQue and install pip packages"
-	if [ ! -d bisque-stable ]; then git clone https://github.com/UCSB-VRL/bisque.git; fi
+	if [ ! -d bisque-stable ]; then git clone https://github.com/UCSB-VRL/bisque.git bisque-stable; fi
 	cd bisque-stable
 	source /usr/local/bin/virtualenvwrapper.sh && workon bqdev
 	pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
 	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2
 	wget -nc https://raw.githubusercontent.com/python/cpython/b1d867f14965e2369d31a3fcdab5bca34b4d81b4/Lib/cgi.py
-	sudo rm /usr/lib/python2.7/cgi.py && sudo mv cgi.py /usr/lib/python2.7 ;&
+	sudo rm /usr/lib/python2.7/cgi.py && sudo mv cgi.py /usr/lib/python2.7 && cd .. ;&
 
 
 8)
 	echo -e ${step_prefix}"STEP 8, setup BisQue"
-	paver setup
-	bq-admin setup ;&
+	cd bisque-stable && paver setup && bq-admin setup ;&
 	
 esac
 
