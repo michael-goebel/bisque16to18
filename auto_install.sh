@@ -77,7 +77,6 @@ source /usr/local/bin/virtualenvwrapper.sh
 "
 
 
-
 case $start in
 
 1)
@@ -114,6 +113,7 @@ case $start in
 
 6)
 	echo -e ${step_prefix}"STEP 6, set up virtualenv"
+	sudo pip install virtualenvwrapper
 	first_line=$(echo "${bashrc_appends}" | head -n 2 | tail -n 1)
 	if grep -Fxq "${first_line}" ~/.bashrc
 	then echo "~/.bashrc already modified"
@@ -128,11 +128,14 @@ case $start in
 	if [ ! -d bisque-stable ]; then git clone https://github.com/UCSB-VRL/bisque.git bisque-stable; fi
 	cd bisque-stable
 	source /usr/local/bin/virtualenvwrapper.sh && workon bqdev
+	if grep -Fxq "setuptools==44.1.0" requirements.txt
+	then echo "requirements.txt already modified"
+	else sed -i '1 a setuptools==44.1.0' requirements.txt
+	fi
 	pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
 	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2
 	wget -nc https://raw.githubusercontent.com/python/cpython/b1d867f14965e2369d31a3fcdab5bca34b4d81b4/Lib/cgi.py
 	sudo rm /usr/lib/python2.7/cgi.py && sudo mv cgi.py /usr/lib/python2.7 && cd .. ;&
-
 
 8)
 	echo -e ${step_prefix}"STEP 8, setup BisQue"
@@ -145,6 +148,7 @@ echo "
 
 Installation script has finished. If successful, run:
 
+    source ~/.bashrc
     workon bqdev
     cd bisque-stable
     bq-admin server start
