@@ -1,9 +1,26 @@
 
 this_path=$(pwd)/$(dirname "$0")
-echo ${this_path}
 
-start=6
+verbose=false
+start=1
 
+while getopts ":vs:" opt; do
+	case ${opt} in
+		v ) verbose=true;;
+		s ) start=$OPTARG;;
+                \? ) echo "Invalid opetion: $OPTARG" 1>&2; exit 0;;
+		h )
+			echo "Usage"
+			echo "    -h                Display this message"
+			echo "    -v                Print outputs when building packages"
+			echo "    -s [n]            Skip to step number [n]"
+			exit 0;;
+	esac
+done	
+
+if [ ${verbose} == "true" ]; then out=/dev/stdout; else out=/dev/null; fi
+
+step_prefix='\n\n\n\n'
 
 packages="
 python=2.7.15~rc1-1
@@ -51,8 +68,7 @@ libxvidcore-dev=2:1.3.5-1
 libgdcm2.8=2.8.4-1build2
 "
 
-
-bash_appends="
+bashrc_appends="
 # Added automatically by BisQue installer
 export PATH=/usr/local/bin:\$PATH
 export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python
@@ -62,81 +78,83 @@ source /usr/local/bin/virtualenvwrapper.sh
 
 
 
-
-
 case $start in
 
 1)
-	# install system packages
-	sudo apt-get install -y ${packages} ;&
+	echo -e ${step_prefix}"STEP 1, install system packages"
+	sudo apt-get install -y ${packages};&
 
 2)
-	# build openjpeg
-	git clone https://github.com/uclouvain/openjpeg
-	cd openjpeg && mkdir build && cd build
-	cmake .. -DCMAKE_BUILD_TYPE=Release
-	sudo make -j4 install && sudo ldconfig && cd ../.. ;&
+	echo -e ${step_prefix}"STEP 2, install openjpeg"
+	if [ ! -d openjpeg ]; then git clone https://github.com/uclouvain/openjpeg; fi
+	cd openjpeg && mkdir -p build && cd build
+	cmake .. -DCMAKE_BUILD_TYPE=Release > ${out}
+	sudo make install > ${out} && sudo ldconfig && cd ../.. ;&
 
 3)
-	# build liboil (required by schroedinger)
-	wget https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz
-	tar -xvzf liboil-0.3.13.tar.gz
-	cd liboil-0.3.13/ && mkdir build && cd build/ && ../configure
-	make && sudo make install && cd ../.. ;&
+	echo -e ${step_prefix}"STEP 3, install liboil (requirement of schroedinger)"
+	wget -nc https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz
+	tar --skip-old-files -xzf liboil-0.3.13.tar.gz
+	cd liboil-0.3.13/ && mkdir -p build && cd build/ && ../configure > ${out}
+	make > ${out} && sudo make install > ${out} && cd ../.. ;&
 
 4)
-	# build schroedinger
-	wget https://launchpad.net/schroedinger/trunk/1.0.0/+download/schroedinger-1.0.0.tar.gz
-	tar -xvzf schroedinger-1.0.0.tar.gz && cd schroedinger-1.0.0/
-	mkdir build && cd build/ && ../configure && make
-	sudo make install && cd ../.. ;&
+	echo -e ${step_prefix}"STEP 4, install schroedinger"
+	wget -nc https://launchpad.net/schroedinger/trunk/1.0.0/+download/schroedinger-1.0.0.tar.gz
+	tar --skip-old-files -xzf schroedinger-1.0.0.tar.gz
+	cd schroedinger-1.0.0/ && mkdir -p build && cd build/ && ../configure > ${out}
+	make > ${out} && sudo make install > ${out} && cd ../.. ;&
 
 5)
-	# build imgcnv
-	#hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv && cd imgcnv
-	#scp mike@128.111.185.28:~/fall_2019/build_bisque4/imgcnv/ubuntu1804.sh .
-	cp $(dirname "$0")/ubuntu1804.sh .
-	bash ubuntu1804.sh && make -j4 && sudo make install && cd ../
+	echo -e ${step_prefix}"STEP 5, install imgcnv"
+	if [ ! -d imgcnv ]; then hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv; fi
+	cd imgcnv && cp $(dirname "$0")/ubuntu1804.sh .
+	bash ubuntu1804.sh && make -j4 > ${out} && sudo make install > ${out} && cd ../
 	sudo ln -s /usr/lib/libimgcnv.so.2 /usr/lib/libimgcnv.so && sudo ldconfig ;&
 
 6)
-	#echo ${bash_appends}
-	# create virtualenv
-	#sudo pip install virtualenvwrapper
-	#grep -Fxq "Added automatically by BisQue installer" ~/.bashrc
-	#grep BisQue ~/.bashrc	
-	#grep "${bash_appends}" ~/.bashrc
-	first_line=$(echo "${bash_appends}" | head -n 2 | tail -n 1)
-	echo ${first_line}
-
-
+	echo -e ${step_prefix}"STEP 6, set up virtualenv"
+	first_line=$(echo "${bashrc_appends}" | head -n 2 | tail -n 1)
 	if grep -Fxq "${first_line}" ~/.bashrc
-	then
-		echo "bashrc already modified"
-	else
-		echo "${bash_appends}" >> ~/.bashrc
+	then echo "bashrc already modified"
+	else echo "${bashrc_appends}" >> ~/.bashrc
 	fi
-	tail ~/.bashrc
-
-
-	#echo -e 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
-	#echo -e 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python' >> ~/.bashrc
-	#echo -e 'export VIRTUALENVWRAPPER_VIRTUALENV=/usr/bin/virtualenv' >> ~/.bashrc
-	#echo -e 'source /usr/local/bin/virtualenvwrapper.sh' >> ~/.bashrc
+	source /usr/local/bin/virtualenvwrapper.sh
 	source ~/.bashrc
 	mkvirtualenv -p /usr/bin/python2 bqdev ;&
 
-
 7)	
-	# clone bisque and pip install (there are problems with the biodev index, so reinstall some packages)
-	git clone https://github.com/UCSB-VRL/bisque.git && cd bisque-stable
+	echo -e ${step_prefix}"STEP 7, clone BisQue and install pip packages"
+	if [ ! -d bisque-stable ]; then git clone https://github.com/UCSB-VRL/bisque.git; fi
+	cd bisque-stable
+	source /usr/local/bin/virtualenvwrapper.sh && workon bqdev
 	pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
-	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2 ;&
+	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2
+	wget -nc https://raw.githubusercontent.com/python/cpython/b1d867f14965e2369d31a3fcdab5bca34b4d81b4/Lib/cgi.py
+	sudo rm /usr/lib/python2.7/cgi.py && sudo mv cgi.py /usr/lib/python2.7 ;&
+
 
 8)
+	echo -e ${step_prefix}"STEP 8, setup BisQue"
 	paver setup
 	bq-admin setup ;&
-
+	
 esac
+
+
+echo "
+
+Installation script has finished. If successful, run:
+
+    workon bqdev
+    cd bisque-stable
+    bq-admin server start
+
+Then open a browser to the address:
+
+    localhost:8080
+
+"
+
 
 
