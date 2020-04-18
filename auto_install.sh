@@ -1,3 +1,10 @@
+
+this_path=$(pwd)/$(dirname "$0")
+echo ${this_path}
+
+start=6
+
+
 packages="
 python=2.7.15~rc1-1
 python-dev=2.7.15~rc1-1
@@ -44,51 +51,92 @@ libxvidcore-dev=2:1.3.5-1
 libgdcm2.8=2.8.4-1build2
 "
 
-# install system packages
-sudo apt-get install -y ${packages}
 
-# build openjpeg
-git clone https://github.com/uclouvain/openjpeg
-cd openjpeg && mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-sudo make -j4 install && sudo ldconfig && cd ../..
-
-# build liboil (required by schroedinger)
-wget https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz
-tar -xvzf liboil-0.3.13.tar.gz
-cd liboil-0.3.13/ && mkdir build && cd build/ && ../configure
-make && sudo make install && cd ../..
-
-# build schroedinger
-wget https://launchpad.net/schroedinger/trunk/1.0.0/+download/schroedinger-1.0.0.tar.gz
-tar -xvzf schroedinger-1.0.0.tar.gz && cd schroedinger-1.0.0/
-mkdir build && cd build/ && ../configure && make
-sudo make install && cd ../..
-
-# build imgcnv
-hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv && cd imgcnv
-#scp mike@128.111.185.28:~/fall_2019/build_bisque4/imgcnv/ubuntu1804.sh .
-cp $(dirname "$0")/ubuntu1804.sh .
-bash ubuntu1804.sh && make -j4 && sudo make install && cd ../
-sudo ln -s /usr/lib/libimgcnv.so.2 /usr/lib/libimgcnv.so && sudo ldconfig
-
-# create virtualenv
-sudo pip install virtualenvwrapper
-echo -e 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
-echo -e 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python' >> ~/.bashrc
-echo -e 'export VIRTUALENVWRAPPER_VIRTUALENV=/usr/bin/virtualenv' >> ~/.bashrc
-echo -e 'source /usr/local/bin/virtualenvwrapper.sh' >> ~/.bashrc
-source ~/.bashrc
-mkvirtualenv -p /usr/bin/python2 bqdev
-
-# clone bisque and pip install (there are problems with the biodev index, so reinstall some packages)
-git clone https://github.com/UCSB-VRL/bisque.git bisque-stable
-pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
-pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2
-
-paver setup
-bq-admin setup
+bash_appends="
+# Added automatically by BisQue installer
+export PATH=/usr/local/bin:\$PATH
+export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python
+export VIRTUALENVWRAPPER_VIRTUALENV=/usr/bin/virtualenv
+source /usr/local/bin/virtualenvwrapper.sh
+"
 
 
+
+
+
+case $start in
+
+1)
+	# install system packages
+	sudo apt-get install -y ${packages} ;&
+
+2)
+	# build openjpeg
+	git clone https://github.com/uclouvain/openjpeg
+	cd openjpeg && mkdir build && cd build
+	cmake .. -DCMAKE_BUILD_TYPE=Release
+	sudo make -j4 install && sudo ldconfig && cd ../.. ;&
+
+3)
+	# build liboil (required by schroedinger)
+	wget https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz
+	tar -xvzf liboil-0.3.13.tar.gz
+	cd liboil-0.3.13/ && mkdir build && cd build/ && ../configure
+	make && sudo make install && cd ../.. ;&
+
+4)
+	# build schroedinger
+	wget https://launchpad.net/schroedinger/trunk/1.0.0/+download/schroedinger-1.0.0.tar.gz
+	tar -xvzf schroedinger-1.0.0.tar.gz && cd schroedinger-1.0.0/
+	mkdir build && cd build/ && ../configure && make
+	sudo make install && cd ../.. ;&
+
+5)
+	# build imgcnv
+	#hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv && cd imgcnv
+	#scp mike@128.111.185.28:~/fall_2019/build_bisque4/imgcnv/ubuntu1804.sh .
+	cp $(dirname "$0")/ubuntu1804.sh .
+	bash ubuntu1804.sh && make -j4 && sudo make install && cd ../
+	sudo ln -s /usr/lib/libimgcnv.so.2 /usr/lib/libimgcnv.so && sudo ldconfig ;&
+
+6)
+	#echo ${bash_appends}
+	# create virtualenv
+	#sudo pip install virtualenvwrapper
+	#grep -Fxq "Added automatically by BisQue installer" ~/.bashrc
+	#grep BisQue ~/.bashrc	
+	#grep "${bash_appends}" ~/.bashrc
+	first_line=$(echo "${bash_appends}" | head -n 2 | tail -n 1)
+	echo ${first_line}
+
+
+	if grep -Fxq "${first_line}" ~/.bashrc
+	then
+		echo "bashrc already modified"
+	else
+		echo "${bash_appends}" >> ~/.bashrc
+	fi
+	tail ~/.bashrc
+
+
+	#echo -e 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
+	#echo -e 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python' >> ~/.bashrc
+	#echo -e 'export VIRTUALENVWRAPPER_VIRTUALENV=/usr/bin/virtualenv' >> ~/.bashrc
+	#echo -e 'source /usr/local/bin/virtualenvwrapper.sh' >> ~/.bashrc
+	source ~/.bashrc
+	mkvirtualenv -p /usr/bin/python2 bqdev ;&
+
+
+7)	
+	# clone bisque and pip install (there are problems with the biodev index, so reinstall some packages)
+	git clone https://github.com/UCSB-VRL/bisque.git && cd bisque-stable
+	pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
+	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2 ;&
+
+8)
+	paver setup
+	bq-admin setup ;&
+
+esac
 
 
