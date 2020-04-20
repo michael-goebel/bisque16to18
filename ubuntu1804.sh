@@ -1,4 +1,4 @@
-# This file makes changes to several files to compile on Ubuntu 18.04.3 LTS.
+# This file makes changes to several files to compile on Ubuntu 18.04.4 LTS.
 # All changes are done using replace and instert functions defined near the top.
 # The functions use vi in command line mode (ex).
 # Run the following commands:
@@ -16,14 +16,17 @@ replace () { ex -s -c "${line_num}d" -c "${line_num}i|${new_line}" -c x ${file};
 insert () { ex -s -c "${line_num}i|${new_line}${NEWLINE}" -c x ${file}; }
 
 
-if [ -f 'old_makefile' ]; then
+# This script copies the original makefile into a backup called "old_makefile".
+# This is a check in the case that this script is run multiple times. If it has not been copied, do so.
+if [ -f 'old_makefile' ];
+then
     cp 'old_makefile' 'Makefile'
 else
     cp 'Makefile' 'old_makefile'
 fi
 
 
-# Put paranethesis around vaiables
+# Put paranethesis around variables
 file='Makefile'
 old_line='PKG_CONFIG_PATH=$LIBVPX/vpx.pc:$LIBX264/x264.pc:$LIBX265/build/linux/x265.pc'
 new_line='PKG_CONFIG_PATH=$(PWD)/$(LIBVPX)/:$(PWD)/$(LIBX264)/:$(PWD)/$(LIBX265)/build/linux/'
@@ -70,7 +73,6 @@ old_line=${TAB}'(cd $(FFMPEG)/ffmpeg-obj; ../ffmpeg/configure \'
 new_line=${TAB}'(export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH); cd $(FFMPEG)/ffmpeg-obj; ../ffmpeg/configure \'
 line_num=117
 replace
-
 
 # stdbool.h not imported
 file='libsrc/libx265/source/x265.h'

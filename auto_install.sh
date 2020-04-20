@@ -4,6 +4,7 @@ this_path=$(pwd)/$(dirname "$0")
 verbose=false
 start=1
 
+# command line args parser, look up "getopts" for explaination of boilerplate template
 while getopts ":vs:" opt; do
 	case ${opt} in
 		v ) verbose=true;;
@@ -18,10 +19,14 @@ while getopts ":vs:" opt; do
 	esac
 done	
 
+# "out" variable is referenced many times later in this script as the destination for compiler outputs.
+# If verbose is true, print to stdout, else, throw away in /dev/null
 if [ ${verbose} == "true" ]; then out=/dev/stdout; else out=/dev/null; fi
 
+# Unimportant, referenced only for structuring print outputs
 step_prefix='\n\n\n\n'
 
+# All packages to install with apt-get
 packages="
 python=2.7.15~rc1-1
 python-dev=2.7.15~rc1-1
@@ -68,6 +73,7 @@ libxvidcore-dev=2:1.3.5-1
 libgdcm2.8=2.8.4-1build2
 "
 
+# Lines to be added to ~/.bashrc
 bashrc_appends="
 # Added automatically by BisQue installer
 export PATH=/usr/local/bin:\$PATH
@@ -77,6 +83,11 @@ source /usr/local/bin/virtualenvwrapper.sh
 "
 
 
+# Install process is broken down into steps done in order.
+# In the case of failure of a particular step, you can restart at any step you wish (see -h)
+# Uses bash case with "fall through" (requires bash >=4.0). Starts at step $start and executes
+# all steps after.
+
 case $start in
 
 1)
@@ -85,14 +96,14 @@ case $start in
 
 2)
 	echo -e ${step_prefix}"STEP 2, install openjpeg"
-	if [ ! -d openjpeg ]; then git clone https://github.com/uclouvain/openjpeg; fi
+	if [ ! -d openjpeg ]; then git clone https://github.com/uclouvain/openjpeg; fi  # clone if dir doesn't exist
 	cd openjpeg && mkdir -p build && cd build
 	cmake .. -DCMAKE_BUILD_TYPE=Release > ${out}
 	sudo make install > ${out} && sudo ldconfig && cd ../.. ;&
 
 3)
 	echo -e ${step_prefix}"STEP 3, install liboil (requirement of schroedinger)"
-	wget -nc https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz
+	wget -nc https://liboil.freedesktop.org/download/liboil-0.3.13.tar.gz  # -nc -> no clobber, wget if doesn't exist
 	tar --skip-old-files -xzf liboil-0.3.13.tar.gz
 	cd liboil-0.3.13/ && mkdir -p build && cd build/ && ../configure > ${out}
 	make > ${out} && sudo make install > ${out} && cd ../.. ;&
@@ -106,20 +117,22 @@ case $start in
 
 5)
 	echo -e ${step_prefix}"STEP 5, install imgcnv"
-	if [ ! -d imgcnv ]; then hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv; fi
-	cd imgcnv && cp ${this_path}/ubuntu1804.sh .
+	if [ ! -d imgcnv ]; then hg clone --insecure http://biodev.ece.ucsb.edu/hg/imgcnv; fi  # Have had problems with connection error in this step, you may need to retry a few times if it does not work
+	cd imgcnv && cp ${this_path}/ubuntu1804.sh .  # modifications to imgcnv are significant enough to have their own file, copy and execute
 	bash ubuntu1804.sh && make -j4 > ${out} && sudo make install > ${out} && cd ../
 	sudo ln -s /usr/lib/libimgcnv.so.2 /usr/lib/libimgcnv.so && sudo ldconfig ;&
+	# For some reason, the installer only copies to .so.2 file to /usr/lib/, but bisque expects .so
+	# So manually create a symbolic link above
 
 6)
 	echo -e ${step_prefix}"STEP 6, set up virtualenv"
 	sudo pip install virtualenvwrapper
 	first_line=$(echo "${bashrc_appends}" | head -n 2 | tail -n 1)
-	if grep -Fxq "${first_line}" ~/.bashrc
-	then echo "~/.bashrc already modified"
-	else echo "${bashrc_appends}" >> ~/.bashrc
+	if grep -Fxq "${first_line}" ~/.bashrc          # check if ~/.bashrc already contains modifications
+	then echo "~/.bashrc already modified"          # if so, do not append a second time
+	else echo "${bashrc_appends}" >> ~/.bashrc      # otherwise, append
 	fi
-	source /usr/local/bin/virtualenvwrapper.sh
+	source /usr/local/bin/virtualenvwrapper.sh      # this line should be in bashrc from above step, but need to activate in this bash script
 	source ~/.bashrc
 	mkvirtualenv -p /usr/bin/python2 bqdev ;&
 
@@ -128,12 +141,16 @@ case $start in
 	if [ ! -d bisque-stable ]; then git clone https://github.com/UCSB-VRL/bisque.git bisque-stable; fi
 	cd bisque-stable
 	source /usr/local/bin/virtualenvwrapper.sh && workon bqdev
-	if grep -Fxq "setuptools==44.1.0" requirements.txt
-	then echo "requirements.txt already modified"
-	else sed -i '1 a setuptools==44.1.0' requirements.txt
+	if grep -Fxq "setuptools==44.1.0" requirements.txt        # setuptools==44.1 is the last to support python2.7, and with deprication,
+	then echo "requirements.txt already modified"             # there is no check that python3 is used when building dependency tree. 
+	else sed -i '1 a setuptools==44.1.0' requirements.txt     # Only once setuptools>44.1 is run does it error out. So must specify version
 	fi
 	pip install -i https://biodev.ece.ucsb.edu/py/bisque/xenial/+simple/ -r requirements.txt
-	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2
+	pip install --force-reinstall lxml==3.7.3 orderedset==2.0.1 tables==3.4.2    # There were problems with these libraries in biodev
+	
+	# Below code reverts cgi from python standard library. In Ubuntu 16.04 default python2 was 2.7.12, and in Ubuntu 18.04, the oldest 
+	# available is 2.7.15. Oddly, between these two releases, cgi was modified in a way that caused breaking changes, but the version
+	# number was kept at 2.6. The webob library relies on the older version, so the code below switches out the two.
 	wget -nc https://raw.githubusercontent.com/python/cpython/b1d867f14965e2369d31a3fcdab5bca34b4d81b4/Lib/cgi.py
 	sudo rm /usr/lib/python2.7/cgi.py && sudo mv cgi.py /usr/lib/python2.7 && cd .. ;&
 
