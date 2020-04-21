@@ -156,6 +156,7 @@ case $start in
 
 8)
 	echo -e ${step_prefix}"STEP 8, setup BisQue"
+	source /usr/local/bin/virtualenvwrapper.sh && workon bqdev
 	cd bisque-stable && paver setup && bq-admin setup ;&
 	
 esac
