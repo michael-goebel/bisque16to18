@@ -4,7 +4,7 @@ Bash files for installing BisQue on Ubuntu 18.04, based off of this reference fo
 
 # auto_installer.sh
 
-Main script to run installer. More details are provided by running "bash auto_installer.sh -h".
+Main script to run installer. More details are provided by running "bash auto_installer.sh -h". See https://ucsb-vrl.github.io/bisque-dev/guides/bisque/#b-configure-bisque-environment for example responses and outputs to BisQue setup questions.
 
 # ubuntu1804.sh
 
